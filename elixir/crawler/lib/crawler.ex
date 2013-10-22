@@ -5,7 +5,7 @@ defmodule Crawler do
     Ignores external links.
   """
 
-
+  alias HTTPotion.Response
   @user_agent [ "User-agent": "zhgeeks crawler demo, mh@noops.co"]
 
 
@@ -14,13 +14,8 @@ defmodule Crawler do
     # IO.inspect args
     {_, uri} = List.keyfind(opts, :uri, 0)
     Tracker.init()
-  end
-
-
-  @doc """
-    `:true` if the `uri` was crawled already, `:false` otherwise.
-  """
-  def crawled?(uri) do
+    spawn(Crawler, :process_uris, [uri, self])
+    process_results()
   end
 
 
@@ -37,7 +32,34 @@ defmodule Crawler do
     to the `uris` pid.
   """
   def crawl_uri(uri, results, uris) do
-    if not crawled?(uri) do
+    if not Tracker.crawled?(uri) do
+      Tracker.register(uri)
+      case fetch(uri) do
+        { :ok, body } ->
+          {result, uri_list} = process_page(body)
+          results <- { :ok, result }
+          uris <- uri_list
+        { :error, _ } -> { :error, uri }
+      end
+    end
+  end
+
+
+  def process_page(_body) do
+    { "", [] }
+  end
+
+
+  @doc """
+    Fetches the page for the given `uri`.
+  """
+  def fetch(uri) do
+    case HTTPotion.get(uri, @user_agent) do
+      Response[body: body, status_code: status, headers: _headers ]
+      when status in 200..299 ->
+        { :ok, body }
+      Response[body: body, status_code: _status, headers: _headers ] ->
+        { :error, body }
     end
   end
 
@@ -46,6 +68,10 @@ defmodule Crawler do
     Prints the results found by the page crawlers.
   """
   def process_results() do
+    receive do
+      { :ok, result } -> IO.puts(result)
+      { :error, uri } -> IO.puts("no result for #{uri}")
+    end
   end
 
 
