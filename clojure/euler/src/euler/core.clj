@@ -11,7 +11,10 @@
     (println "fibs = " fibs)
     (println "result = " result)))
 
-(defn -main[problem &args]
+(defn -main[&args]
   (cond
     (= problem "2-fibs") (p2-main)
-    :else (println "Solved problems: 1 
+    :else (println
+            "Solved problems:
+              1-blah
+              2-fibs")))

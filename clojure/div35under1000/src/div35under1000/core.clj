@@ -39,7 +39,7 @@
   "The sum of numbers divisible by 3 or 5 and less than n based on division"
   [n]
   (let [nums (range 1 n)
-        div3or5s (take-while #(or (= (rem % 3) 0) (= (rem % 5) 0)))]
+        div3or5s (take-while #(or (= (rem % 3) 0) (= (rem % 5) 0)) nums)]
     (reduce + 0 div3or5s)))
 
 (defn -main[limit method-selector]
