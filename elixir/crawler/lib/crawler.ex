@@ -13,10 +13,64 @@ defmodule Crawler do
     {opts, _, _} = OptionParser.parse(args)
     # IO.inspect args
     {_, uri} = List.keyfind(opts, :uri, 0)
+
     Tracker.init()
-    crawler_pid = spawn(Crawler, :process_uris, [uri, self])
-    crawl_uri(uri, self, crawler_pid) 
-    process_results()
+    crawler_pid = spawn(Crawler, :crawl, [uri, self])
+
+    # kick-off the crawling
+    munge_1_uri(uri, self, crawler_pid)
+
+    print_results()
+  end
+
+
+  @doc """
+    Makes sure that all pages are crawled.
+  """
+  def crawl(top_level_uri, results_pid) do
+    receive do
+      uris ->
+        Enum.map(uris, fn uri ->
+          IO.puts("> #{uri}")
+          uri = normalize_uri(top_level_uri, uri)
+          IO.puts("+ #{uri}")
+          spawn(Crawler, :munge_1_uri, [uri, results_pid, self])
+        end)
+    end
+  end
+
+
+  @doc """
+    Crawls an URI, sends results to the `results` pid and the found URIs
+    to the `uris` pid.
+  """
+  def munge_1_uri(uri, results, uris) do
+    IO.puts(">> #{uri}")
+    if not Tracker.crawled?(uri) do
+      Tracker.register(uri)
+      IO.puts(">>> #{uri}")
+
+      case fetch(uri) do
+        { :ok, body, headers } ->
+          if is_html?(headers) do
+            {result, uri_list} = process_page(uri, body)
+            results <- { :ok, result }
+            uris <- uri_list
+          end
+        { :error, _, _ } -> { :error, uri }
+      end
+    end
+  end
+
+
+  @doc """
+    Prints the results found by the page crawlers.
+  """
+  def print_results() do
+    receive do
+      { :ok, result } -> IO.puts(result)
+      { :error, uri } -> IO.puts("no result for #{uri}")
+    end
   end
 
 
@@ -30,28 +84,6 @@ defmodule Crawler do
 
   defp is_html?(headers) do
     String.contains?(ListDict.get(headers, :"Content-Type"), "text/html")
-  end
-
-
-  @doc """
-    Crawls an URI, sends results to the `results` pid and the found URIs
-    to the `uris` pid.
-  """
-  def crawl_uri(uri, results, uris) do
-    IO.puts(">> #{uri}")
-    if not Tracker.crawled?(uri) do
-      Tracker.register(uri)
-      IO.puts(">>> #{uri}")
-      case fetch(uri) do
-        { :ok, body, headers } ->
-          if is_html?(headers) do
-            {result, uri_list} = process_page(uri, body)
-            results <- { :ok, result }
-            uris <- uri_list
-          end
-        { :error, _, _ } -> { :error, uri }
-      end
-    end
   end
 
 
@@ -76,34 +108,13 @@ defmodule Crawler do
   end
 
 
-  @doc """
-    Prints the results found by the page crawlers.
-  """
-  def process_results() do
-    receive do
-      { :ok, result } -> IO.puts(result)
-      { :error, uri } -> IO.puts("no result for #{uri}")
-    end
-  end
-
-
-  @doc """
-    Makes sure that all pages are crawled.
-  """
-  def process_uris(top_level_uri, results_pid) do
-    receive do
-      uris ->
-        Enum.map(uris, fn uri ->
-          IO.puts("> #{uri}")
-          if (internal_link?(uri, top_level_uri)) do
-            if String.starts_with?(uri, "/") do
-              spawn(
-                Crawler, :crawl_uri, [top_level_uri <> uri, results_pid, self])
-            else
-              spawn(Crawler, :crawl_uri, [uri, results_pid, self])
-            end
-          end
-        end)
+  def normalize_uri(top_level_uri, uri) do
+    if String.starts_with?(uri, "/") do
+      tld = Enum.at(Regex.run(%r{(http[s]?://([^/]+))/}, top_level_uri), 1)
+      tld <> uri
+    else
+      uri
     end
   end
 end
+

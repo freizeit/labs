@@ -17,10 +17,12 @@ defmodule Tracker do
     `:true` if the `uri` was crawled already, `:false` otherwise.
   """
   def crawled?(uri) do
-    case :ets.lookup(:uris, uri) do
+    result = case :ets.lookup(:uris, uri) do
       [] -> :false
       _ -> :true
     end
+    IO.puts("?? #{uri} :: #{result}")
+    result
   end
 
 
@@ -28,6 +30,7 @@ defmodule Tracker do
     mark/register an URI that was already crawled
   """
   def register(uri) do
+    IO.puts("!! #{uri}")
     :ets.insert(:uris, {uri})
   end
 end
