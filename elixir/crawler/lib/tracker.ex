@@ -7,7 +7,7 @@ defmodule Tracker do
 
   def init(table_name // :uris) do
     case :ets.info(:uris) do
-      :undefined -> :ets.new(table_name, [:named_table, {:keypos,1}])
+      :undefined -> :ets.new(table_name, [:named_table, :public, {:keypos,1}])
       _ -> :ok
     end
   end

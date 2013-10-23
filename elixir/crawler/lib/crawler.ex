@@ -18,7 +18,7 @@ defmodule Crawler do
     crawler_pid = spawn(Crawler, :crawl, [uri, self])
 
     # kick-off the crawling
-    munge_1_uri(uri, self, crawler_pid)
+    spawn(Crawler, :munge_1_uri, [uri, self, crawler_pid])
 
     print_results()
   end
@@ -71,6 +71,7 @@ defmodule Crawler do
       { :ok, result } -> IO.puts(result)
       { :error, uri } -> IO.puts("no result for #{uri}")
     end
+    print_results()
   end
 
 
